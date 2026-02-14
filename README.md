@@ -1,23 +1,56 @@
-# Subsonic utils
+# Subsonic Rating Sync
 
-This repo contains some utilities for subsonic servers.
+Syncs album ratings from a Subsonic server to FLAC files, and optionally deletes 1-star albums.
 
-## Setup
-Install the dependenies in `requirements.txt`.
+## Docker Usage
 
-## sync_album_ratings.py
-Reads user album ratings and writes them to an `ALBUMRATING` tag. Only flac
-files are supported. Run `./sync_album_ratings.py -h` for documentation.
+### Build
 
-## delete_1_star_albums.py
-Deletes albums with a 1 star rating from the file system.
+```bash
+docker build -t subsonic-rating-sync .
+```
 
-**Warning**: this script deletes every file in the same directory as the first
-song of an album. This means that if you keep two albums in the same directory,
-both would get deleted even though only one had the 1 star rating. It also
-means that any files besides the music files (covers, text files, etc) will
-also get deleted.
+### Run
 
-The script will recursively delete the empty album folder and its parent dirs.
-So if you maintain a structure like `artist/album/01 song.flac`, the artist dir
-will be automatically removed if their last album was removed.
+Create a `.env` file with your Subsonic credentials:
+
+```
+SUBSONIC_HOST=https://your-subsonic-server.com
+SUBSONIC_USER=your_username
+SUBSONIC_PASSWORD=your_password
+SUBSONIC_PORT=443
+```
+
+### Dry Run (Preview)
+
+```bash
+docker run --rm -i -v /path/to/your/music:/music --env-file .env subsonic-rating-sync --dry-run
+```
+
+This will print operations without executing them:
+- `[DRY RUN] Would write ALBUMRATING=4 to /music/library/Artist/Album/01 song.flac`
+- `[DRY RUN] Would delete: /music/library/Artist/1StarAlbum`
+
+### Actual Run
+
+```bash
+docker run --rm -i -v /path/to/your/music:/music --env-file .env subsonic-rating-sync
+```
+
+This will:
+- Write ALBUMRATING tags to FLAC files for albums with ratings > 1
+- Delete album directories for albums with rating = 1
+
+## Configuration
+
+- Mount your music directory to `/music` inside the container
+- The script expects Subsonic paths to be relative to a `/music` prefix (e.g., `/music/library/Artist/Album`)
+
+## Legacy (Non-Docker)
+
+Install dependencies and run directly:
+
+```bash
+pip install -r requirements.txt
+SUBSONIC_HOST=... SUBSONIC_USER=... SUBSONIC_PASSWORD=... SUBSONIC_PORT=... python sync_and_cleanup.py [--dry-run]
+```
